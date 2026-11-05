@@ -1,0 +1,112 @@
+package com.isil.edu.pe.spedidos.controller;
+
+import com.isil.edu.pe.spedidos.controller.dto.PedidoResponse;
+import com.isil.edu.pe.spedidos.entity.Pedido;
+import com.isil.edu.pe.spedidos.repository.projection.ClienteFrecuenteProjection;
+import com.isil.edu.pe.spedidos.service.PedidoService;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Controlador HTTP de ejemplo utilizado para demostrar cómo una misma
+ * dependencia de negocio puede ser reutilizada desde diferentes componentes
+ * administrados por Spring.
+ *
+ * <p>El objetivo pedagógico de esta clase en la Sesión 5 no es desarrollar
+ * todavía los conceptos de servicios REST en profundidad. Su finalidad es
+ * hacer observable la Inyección de Dependencias.</p>
+ *
+ * <p>El controlador depende de la abstracción {@link PedidoService} y recibe
+ * su implementación mediante Constructor Injection.</p>
+ *
+ * <pre>
+ * Petición HTTP
+ *      |
+ *      v
+ * PedidoApiController
+ *      |
+ *      | Constructor Injection
+ *      v
+ * PedidoService
+ *      |
+ *      v
+ * InventarioClient
+ * </pre>
+ */
+@RestController
+@RequestMapping("/api/v1/orders")
+public class PedidoApiController {
+
+  private final PedidoService pedidoService;
+
+  /**
+   * Construye el controlador utilizando el servicio proporcionado
+   * por el contenedor IoC de Spring.
+   *
+   * @param pedidoService servicio de negocio de pedidos
+   */
+  public PedidoApiController(PedidoService pedidoService) {
+    this.pedidoService = pedidoService;
+  }
+
+  /**
+   * Obtiene los productos disponibles desde Inventario.
+   *
+   * <p>El método no conoce cómo se realiza la consulta externa.
+   * Únicamente delega la operación en {@link PedidoService}.</p>
+   *
+   * @return productos disponibles
+   */
+  @GetMapping
+  public List<PedidoResponse> listarPedidos() {
+    return pedidoService.listarPedidos()
+        .stream()
+        .map(PedidoResponse::from)
+        .toList();
+  }
+
+  @GetMapping(value = "/resumen", produces = MediaType.APPLICATION_JSON_VALUE)
+  public Map<String, Object> resumenPedidos() {
+    List<Pedido> pedidos = pedidoService.listarPedidos();
+
+    int totalUnidades = pedidos.stream()
+        .mapToInt(Pedido::getCantidad)
+        .sum();
+
+    Map<String, Object> resumen = new HashMap<>();
+
+    resumen.put("modulo", "Sistema de Pedidos");
+    resumen.put("totalPedidos", pedidos.size());
+    resumen.put("totalUnidades", totalUnidades);
+
+    return resumen;
+  }
+
+  /// MODIFICACION MIA
+  @GetMapping("/busqueda-avanzada")
+  public ResponseEntity<List<Pedido>> buscarAvanzada(
+          @RequestParam String cliente,
+          @RequestParam BigDecimal totalMinimo) {
+      List<Pedido> pedidos = pedidoService.buscarPedidosPorClienteYTotalMinimo(cliente, totalMinimo);
+      return ResponseEntity.ok(pedidos);
+  }
+
+    @GetMapping("/clientes-frecuentes")
+    public ResponseEntity<List<ClienteFrecuenteProjection>> listarClientesFrecuentes(
+            @RequestParam(defaultValue = "1") int minPedidos) {
+        List<ClienteFrecuenteProjection> clientes = pedidoService.listarClientesFrecuentes(minPedidos);
+        return ResponseEntity.ok(clientes);
+    }
+
+   /// MODIFICACION MIA
+
+}
